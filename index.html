@@ -1,0 +1,1944 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>日程安排</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #f5f5f7;
+  --surface: #ffffff;
+  --border: #e5e7eb;
+  --text: #1f2937;
+  --text-secondary: #6b7280;
+  --primary: #4f46e5;
+  --primary-light: #eef2ff;
+  --danger: #ef4444;
+  --danger-light: #fef2f2;
+  --today-bg: #eef2ff;
+  --hover: #f3f4f6;
+  --shadow: 0 1px 3px rgba(0,0,0,0.08);
+  --radius: 10px;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  padding: 24px;
+}
+
+.app {
+  width: 100%;
+  max-width: 960px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+/* Header */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.header h1 {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.nav-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nav-btn {
+  width: 36px; height: 36px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s;
+}
+.nav-btn:hover { background: var(--hover); }
+
+.today-btn {
+  padding: 0 16px;
+  height: 36px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.15s;
+}
+.today-btn:hover { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+.month-label {
+  font-size: 17px;
+  font-weight: 600;
+  min-width: 140px;
+  text-align: center;
+}
+
+/* View toggle */
+.view-toggle {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.view-toggle button {
+  padding: 7px 18px;
+  border: none;
+  background: var(--surface);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.15s;
+}
+.view-toggle button.active {
+  background: var(--primary);
+  color: #fff;
+}
+
+.sync-btn {
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.sync-btn:hover { border-color: var(--primary); }
+
+/* Sync settings modal */
+.sync-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-bottom: 10px;
+}
+.sync-option:hover { border-color: var(--primary); background: var(--primary-light); }
+.sync-option.active { border-color: var(--primary); background: var(--primary-light); }
+.sync-option .opt-icon { font-size: 24px; flex-shrink: 0; }
+.sync-option .opt-body { flex: 1; }
+.sync-option .opt-title { font-size: 14px; font-weight: 600; }
+.sync-option .opt-desc { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+.sync-option .opt-check { color: var(--primary); font-weight: 700; font-size: 16px; }
+
+.gist-token-area { margin-top: 10px; display: none; }
+.gist-token-area.show { display: block; }
+
+.gist-token-row { display: flex; gap: 8px; }
+.gist-token-row input { flex: 1; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; font-family: monospace; }
+.gist-token-row input:focus { outline: none; border-color: var(--primary); }
+.gist-token-row button { padding: 8px 16px; background: var(--primary); color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; white-space: nowrap; }
+.gist-hint { font-size: 11px; color: var(--text-secondary); margin-top: 8px; line-height: 1.5; }
+.gist-hint a { color: var(--primary); }
+.gist-status { font-size: 12px; margin-top: 6px; min-height: 18px; }
+
+/* Calendar grid */
+.calendar { display: none; }
+.calendar.active { display: block; }
+
+.weekday-row {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 500;
+  padding: 10px 0;
+}
+
+.day-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.day-cell {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  min-height: 100px;
+  padding: 6px 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+  position: relative;
+}
+.day-cell:hover { background: var(--hover); }
+.day-cell.other-month { color: #ccc; }
+.day-cell.today { background: var(--today-bg); }
+.day-cell.today .day-num {
+  background: var(--primary);
+  color: #fff;
+  border-radius: 50%;
+  width: 24px; height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+}
+.day-cell.selected { box-shadow: inset 0 0 0 2px var(--primary); border-radius: 4px; }
+
+.day-num { font-size: 13px; font-weight: 500; margin-bottom: 2px; }
+
+.day-events { display: flex; flex-direction: column; gap: 2px; }
+.event-chip {
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  font-weight: 500;
+}
+.event-chip.work { background: #dbeafe; color: #1d4ed8; }
+.event-chip.personal { background: #d1fae5; color: #059669; }
+.event-chip.important { background: #fef3c7; color: #d97706; }
+.event-chip.other { background: #f3e8ff; color: #7c3aed; }
+
+/* Sidebar */
+.sidebar {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  min-width: 260px;
+}
+.sidebar h3 { font-size: 15px; font-weight: 600; margin-bottom: 16px; }
+.sidebar .date-title { font-size: 14px; color: var(--text-secondary); margin-bottom: 12px; }
+
+.sidebar-events { display: flex; flex-direction: column; gap: 10px; }
+.sidebar-event {
+  padding: 12px;
+  border-radius: 8px;
+  border-left: 3px solid var(--primary);
+  background: var(--primary-light);
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+.sidebar-event:hover { transform: translateX(2px); }
+.sidebar-event.work { border-left-color: #3b82f6; background: #eff6ff; }
+.sidebar-event.personal { border-left-color: #10b981; background: #ecfdf5; }
+.sidebar-event.important { border-left-color: #f59e0b; background: #fffbeb; }
+.sidebar-event.other { border-left-color: #8b5cf6; background: #f5f3ff; }
+
+.sidebar-event .evt-time { font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; }
+.sidebar-event .evt-title { font-size: 14px; font-weight: 600; }
+.sidebar-event .evt-desc { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+.sidebar-event .evt-delete {
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--danger);
+  cursor: pointer;
+  background: none; border: none;
+  padding: 0;
+}
+.sidebar-event .evt-delete:hover { text-decoration: underline; }
+
+.no-events { font-size: 13px; color: var(--text-secondary); text-align: center; padding: 20px 0; }
+
+.add-btn {
+  width: 100%;
+  padding: 10px;
+  border: 2px dashed var(--border);
+  background: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-top: 12px;
+  transition: all 0.15s;
+}
+.add-btn:hover { border-color: var(--primary); color: var(--primary); }
+
+/* Main layout */
+.main-area {
+  display: flex;
+  gap: 20px;
+}
+.calendar-wrapper { flex: 1; min-width: 0; }
+
+/* Modal */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+.modal-overlay.hidden { display: none; }
+
+.modal {
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 24px;
+  width: 400px;
+  max-width: 90vw;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+}
+.modal h3 { font-size: 18px; font-weight: 600; margin-bottom: 20px; }
+
+.form-group { margin-bottom: 14px; }
+.form-group label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+.form-group input, .form-group textarea, .form-group select {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  transition: border-color 0.15s;
+}
+.form-group input:focus, .form-group textarea:focus, .form-group select:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+.form-group textarea { resize: vertical; min-height: 60px; }
+
+/* Subtasks */
+.subtask-list { display: flex; flex-direction: column; gap: 6px; }
+.subtask-item { display: flex; align-items: center; gap: 8px; }
+.subtask-item input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; accent-color: var(--primary); }
+.subtask-item .subtask-title { flex: 1; font-size: 14px; }
+.subtask-item .subtask-title.done { text-decoration: line-through; color: var(--text-secondary); }
+.subtask-delete { background: none; border: none; color: var(--danger); cursor: pointer; font-size: 14px; padding: 0 4px; }
+.subtask-add-row { display: flex; gap: 8px; }
+.subtask-add-row input { flex: 1; padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; }
+.subtask-add-row input:focus { outline: none; border-color: var(--primary); }
+.subtask-add-row button { padding: 7px 14px; background: var(--primary-light); color: var(--primary); border: 1px solid var(--primary); border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; white-space: nowrap; }
+
+/* Reminder */
+.reminder-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.reminder-row label { font-size: 13px; font-weight: 500; color: var(--text-secondary); cursor: pointer; }
+.reminder-row select { padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; }
+.toggle-switch { position: relative; width: 40px; height: 22px; flex-shrink: 0; }
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
+.toggle-slider { position: absolute; cursor: pointer; inset: 0; background: #ccc; border-radius: 22px; transition: 0.2s; }
+.toggle-slider::before { content: ""; position: absolute; height: 16px; width: 16px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: 0.2s; }
+.toggle-switch input:checked + .toggle-slider { background: var(--primary); }
+.toggle-switch input:checked + .toggle-slider::before { transform: translateX(18px); }
+
+/* Subtask progress bar */
+.subtask-progress { margin-top: 6px; }
+.progress-bar { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; margin-top: 4px; }
+.progress-fill { height: 100%; background: var(--primary); border-radius: 2px; transition: width 0.3s; }
+.progress-text { font-size: 11px; color: var(--text-secondary); }
+
+.modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+
+.btn {
+  padding: 9px 20px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.15s;
+}
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-primary:hover { opacity: 0.9; }
+.btn-cancel { background: var(--hover); color: var(--text); }
+.btn-cancel:hover { background: var(--border); }
+
+/* Week view */
+.week-view { display: none; }
+.week-view.active { display: block; }
+
+.week-header-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.week-day-label {
+  flex: 1;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 10px 4px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.week-day-label:hover { background: var(--hover); }
+.week-day-label.today { background: var(--today-bg); color: var(--primary); font-weight: 700; }
+
+.week-content {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.hour-slot {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  min-height: 48px;
+}
+.hour-slot:last-child { border-bottom: none; }
+
+.hour-label {
+  width: 55px;
+  padding: 4px 6px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-align: right;
+  border-right: 1px solid var(--border);
+  flex-shrink: 0;
+  padding-top: 2px;
+}
+.hour-days {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+}
+.hour-day-cell {
+  border-right: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.hour-day-cell:last-child { border-right: none; }
+.hour-day-cell:hover { background: var(--hover); }
+
+.week-event {
+  font-size: 11px;
+  padding: 2px 4px;
+  margin: 1px 2px;
+  border-radius: 4px;
+  font-weight: 500;
+  cursor: pointer;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.week-event.work { background: #dbeafe; color: #1d4ed8; }
+.week-event.personal { background: #d1fae5; color: #059669; }
+.week-event.important { background: #fef3c7; color: #d97706; }
+.week-event.other { background: #f3e8ff; color: #7c3aed; }
+
+/* Day view */
+.day-view { display: none; }
+.day-view.active { display: block; }
+
+.day-header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.day-header .day-date {
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.day-header .day-weekday {
+  font-size: 16px;
+  color: var(--text-secondary);
+}
+
+.day-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.day-empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-secondary);
+}
+.day-empty .empty-icon { font-size: 48px; margin-bottom: 12px; }
+.day-empty .empty-text { font-size: 15px; }
+
+.day-event-card {
+  display: flex;
+  gap: 14px;
+  padding: 16px 20px;
+  border-left: 3px solid var(--primary);
+  background: var(--surface);
+  border-radius: 0 8px 8px 0;
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: box-shadow 0.15s, transform 0.1s;
+  position: relative;
+}
+.day-event-card:hover { box-shadow: var(--shadow); transform: translateX(2px); }
+.day-event-card.work { border-left-color: #3b82f6; }
+.day-event-card.personal { border-left-color: #10b981; }
+.day-event-card.important { border-left-color: #f59e0b; }
+.day-event-card.other { border-left-color: #8b5cf6; }
+
+.day-event-card .day-card-time {
+  width: 70px;
+  flex-shrink: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  text-align: center;
+}
+.day-event-card .day-card-body { flex: 1; min-width: 0; }
+.day-event-card .day-card-title { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+.day-event-card .day-card-desc { font-size: 13px; color: var(--text-secondary); }
+.day-event-card .day-card-meta { display: flex; align-items: center; gap: 10px; margin-top: 6px; }
+.day-event-card .day-card-cat {
+  font-size: 11px;
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-weight: 500;
+}
+.day-card-cat.work { background: #dbeafe; color: #1d4ed8; }
+.day-card-cat.personal { background: #d1fae5; color: #059669; }
+.day-card-cat.important { background: #fef3c7; color: #d97706; }
+.day-card-cat.other { background: #f3e8ff; color: #7c3aed; }
+
+.day-event-card .day-card-reminder { font-size: 12px; color: var(--text-secondary); }
+
+/* Pomodoro */
+.pomodoro-section {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+.pomodoro-section h3 { font-size: 15px; font-weight: 600; margin-bottom: 12px; }
+
+.pomo-timer {
+  text-align: center;
+  margin-bottom: 14px;
+}
+.pomo-display {
+  font-size: 48px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 2px;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+.pomo-display.running { color: var(--primary); }
+.pomo-display.paused { color: #f59e0b; }
+
+.pomo-status {
+  font-size: 12px;
+  color: var(--text-secondary);
+  height: 18px;
+}
+
+.pomo-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.pomo-preset {
+  padding: 5px 12px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.15s;
+}
+.pomo-preset:hover { border-color: var(--primary); color: var(--primary); }
+.pomo-preset.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+.pomo-custom-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+  align-items: center;
+}
+.pomo-custom-row input {
+  flex: 1;
+  width: 60px;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 13px;
+  text-align: center;
+}
+.pomo-custom-row input:focus { outline: none; border-color: var(--primary); }
+.pomo-custom-row span { font-size: 12px; color: var(--text-secondary); white-space: nowrap; }
+
+.pomo-controls {
+  display: flex;
+  gap: 8px;
+}
+.pomo-btn {
+  flex: 1;
+  padding: 8px 0;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+.pomo-start { background: var(--primary); color: #fff; }
+.pomo-start:hover { opacity: 0.9; }
+.pomo-pause { background: #f59e0b; color: #fff; }
+.pomo-pause:hover { opacity: 0.9; }
+.pomo-reset { background: var(--hover); color: var(--text); }
+.pomo-reset:hover { background: var(--border); }
+
+.pomo-today {
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: var(--primary-light);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: center;
+  color: var(--primary);
+}
+
+@media (max-width: 700px) {
+  .main-area { flex-direction: column; }
+  .sidebar { min-width: auto; }
+  .day-cell { min-height: 70px; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <h1>日程安排</h1>
+    <div class="nav-group">
+      <button class="today-btn" onclick="goToday()">今天</button>
+      <button class="nav-btn" onclick="prevMonth()">◀</button>
+      <span class="month-label" id="monthLabel"></span>
+      <button class="nav-btn" onclick="nextMonth()">▶</button>
+    </div>
+    <div class="view-toggle">
+      <button id="monthViewBtn" class="active" onclick="switchView('month')">月</button>
+      <button id="weekViewBtn" onclick="switchView('week')">周</button>
+      <button id="dayViewBtn" onclick="switchView('day')">日</button>
+    </div>
+    <button class="sync-btn" id="syncIndicator" onclick="handleSyncClick()" title="点击开启云同步">💻 仅本机</button>
+  </div>
+
+  <div class="main-area">
+    <div class="calendar-wrapper">
+      <!-- Month View -->
+      <div class="calendar active" id="monthView">
+        <div class="weekday-row">
+          <span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span>
+        </div>
+        <div class="day-grid" id="dayGrid"></div>
+      </div>
+
+      <!-- Week View -->
+      <div class="week-view" id="weekView">
+        <div class="week-header-row" id="weekHeader"></div>
+        <div class="week-content" id="weekContent"></div>
+      </div>
+
+      <!-- Day View -->
+      <div class="day-view" id="dayView">
+        <div class="day-header" id="dayHeader"></div>
+        <div class="day-timeline" id="dayTimeline"></div>
+      </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="sidebar" id="sidebar">
+      <h3 id="sidebarTitle">今日日程</h3>
+      <div class="sidebar-events" id="sidebarEvents"></div>
+      <button class="add-btn" onclick="openAddModal()">+ 添加日程</button>
+
+      <!-- Pomodoro Timer -->
+      <div class="pomodoro-section">
+        <h3>番茄钟</h3>
+        <div class="pomo-timer">
+          <div class="pomo-display" id="pomoDisplay">25:00</div>
+          <div class="pomo-status" id="pomoStatus">准备开始</div>
+        </div>
+        <div class="pomo-presets" id="pomoPresets">
+          <button class="pomo-preset active" onclick="setPomoDuration(25)">25分钟</button>
+          <button class="pomo-preset" onclick="setPomoDuration(45)">45分钟</button>
+          <button class="pomo-preset" onclick="setPomoDuration(60)">1小时</button>
+          <button class="pomo-preset" onclick="setPomoDuration(90)">1.5小时</button>
+          <button class="pomo-preset" onclick="setPomoDuration(120)">2小时</button>
+          <button class="pomo-preset custom-preset" id="customPreset" onclick="setPomoDuration(0)">自定义</button>
+        </div>
+        <div class="pomo-custom-row">
+          <input type="number" id="pomoCustomInput" value="30" min="5" max="300" onchange="onCustomInput()" placeholder="自定义分钟">
+          <span>分钟</span>
+        </div>
+        <div class="pomo-controls">
+          <button class="pomo-btn pomo-start" id="pomoStartBtn" onclick="startPomodoro()">开始</button>
+          <button class="pomo-btn pomo-pause" id="pomoPauseBtn" onclick="pausePomodoro()" style="display:none;">暂停</button>
+          <button class="pomo-btn pomo-reset" id="pomoResetBtn" onclick="resetPomodoro()">重置</button>
+        </div>
+        <div class="pomo-today" id="pomoToday">今日专注：0 分钟</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay hidden" id="modalOverlay">
+  <div class="modal">
+    <h3 id="modalTitle">添加日程</h3>
+    <form id="eventForm" onsubmit="saveEvent(event)">
+      <input type="hidden" id="editId">
+      <div class="form-group">
+        <label>标题</label>
+        <input type="text" id="evtTitle" placeholder="例如：团队周会" required>
+      </div>
+      <div class="form-group">
+        <label>日期</label>
+        <input type="date" id="evtDate" required>
+      </div>
+      <div class="form-group">
+        <label>时间（可选）</label>
+        <input type="time" id="evtTime">
+      </div>
+      <div class="form-group">
+        <label>分类</label>
+        <select id="evtCategory">
+          <option value="work">工作</option>
+          <option value="personal">个人</option>
+          <option value="important">重要</option>
+          <option value="other">其他</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>备注（可选）</label>
+        <textarea id="evtDesc" placeholder="添加备注..."></textarea>
+      </div>
+      <div class="reminder-row">
+        <label class="toggle-switch">
+          <input type="checkbox" id="evtReminder" onchange="toggleReminderTime()">
+          <span class="toggle-slider"></span>
+        </label>
+        <label for="evtReminder" style="margin-right:4px;">设置提醒</label>
+        <select id="evtReminderTime" style="display:none;">
+          <option value="0">准时提醒</option>
+          <option value="5">提前 5 分钟</option>
+          <option value="15" selected>提前 15 分钟</option>
+          <option value="30">提前 30 分钟</option>
+          <option value="60">提前 1 小时</option>
+          <option value="1440">提前 1 天</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>子任务（可选）</label>
+        <div class="subtask-list" id="subtaskList"></div>
+        <div class="subtask-add-row">
+          <input type="text" id="subtaskInput" placeholder="添加子任务，如：读《三体》" onkeydown="if(event.key==='Enter'){event.preventDefault();addSubtask();}">
+          <button type="button" onclick="addSubtask()">添加</button>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-cancel" onclick="closeModal()">取消</button>
+        <button type="submit" class="btn btn-primary">保存</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Sync Settings Modal -->
+<div class="modal-overlay hidden" id="syncModalOverlay">
+  <div class="modal" style="max-width:480px;">
+    <h3>同步设置</h3>
+    <div id="syncOptions">
+      <div class="sync-option" id="syncOptGist" onclick="selectSyncMode('gist')">
+        <div class="opt-icon">☁️</div>
+        <div class="opt-body">
+          <div class="opt-title">云端同步（GitHub Gist）</div>
+          <div class="opt-desc">手机、平板、电脑全平台自动同步，免费</div>
+        </div>
+        <div class="opt-check" id="syncCheckGist"></div>
+      </div>
+      <div class="gist-token-area" id="gistTokenArea">
+        <div class="gist-token-row">
+          <input type="password" id="gistTokenInput" placeholder="粘贴 GitHub Token">
+          <button onclick="connectGist()">连接</button>
+        </div>
+        <div class="gist-hint">
+          需要 GitHub Token（免费）：<br>
+          1. 打开 <a href="https://github.com/settings/tokens" target="_blank">github.com/settings/tokens</a><br>
+          2. 点「Generate new token」→ 选「classic」<br>
+          3. 只勾选 <b>gist</b> 权限，生成后粘贴到这里
+        </div>
+        <div class="gist-status" id="gistStatus"></div>
+      </div>
+
+      <div class="sync-option" id="syncOptFile" onclick="selectSyncMode('file')">
+        <div class="opt-icon">📁</div>
+        <div class="opt-body">
+          <div class="opt-title">文件同步（OneDrive）</div>
+          <div class="opt-desc">数据存为 JSON 文件，通过云盘同步（仅桌面）</div>
+        </div>
+        <div class="opt-check" id="syncCheckFile"></div>
+      </div>
+
+      <div class="sync-option" id="syncOptLocal" onclick="selectSyncMode('local')">
+        <div class="opt-icon">💻</div>
+        <div class="opt-body">
+          <div class="opt-title">仅本机</div>
+          <div class="opt-desc">数据只存在当前浏览器，不跨设备</div>
+        </div>
+        <div class="opt-check" id="syncCheckLocal"></div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-cancel" onclick="closeSyncModal()">关闭</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = 'schedule_app_events';
+const DATA_FILE_NAME = 'schedule_data.json';
+let events = [];
+let currentDate = new Date();
+let selectedDate = null;
+let currentView = 'month';
+let tempSubtasks = [];
+let firedReminders = new Set();
+let syncMode = 'local'; // 'local' | 'file' | 'gist'
+let fileHandle = null;
+let gistToken = '';
+let gistId = '';
+let syncDebounceTimer = null;
+
+// Key for token/id storage (NOT in the synced data to avoid circular dep)
+const SYNC_CONFIG_KEY = 'schedule_sync_config';
+
+function loadSyncConfig() {
+  try {
+    const cfg = JSON.parse(localStorage.getItem(SYNC_CONFIG_KEY)) || {};
+    gistToken = cfg.gistToken || '';
+    gistId = cfg.gistId || '';
+  } catch { gistToken = ''; gistId = ''; }
+}
+
+function saveSyncConfig() {
+  localStorage.setItem(SYNC_CONFIG_KEY, JSON.stringify({ gistToken, gistId }));
+}
+
+// === Data Sync Layer ===
+
+// All app data in one object
+function packData() {
+  return {
+    events: events,
+    focusDate: focusDate,
+    focusSeconds: todayFocusSeconds,
+    version: 3,
+    updatedAt: new Date().toISOString()
+  };
+}
+
+function unpackData(data) {
+  if (!data) return;
+  events = (data.events || []).map(e => ({
+    ...e,
+    subtasks: e.subtasks || [],
+    reminder: e.reminder || false,
+    reminderMinutes: e.reminderMinutes || 0
+  }));
+  focusDate = data.focusDate || '';
+  todayFocusSeconds = data.focusSeconds || 0;
+  const today = formatDate(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
+  if (focusDate !== today) {
+    focusDate = today;
+    todayFocusSeconds = 0;
+  }
+}
+
+// === IndexedDB for file handle persistence ===
+function openHandleDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open('ScheduleFileHandle', 1);
+    req.onupgradeneeded = () => { req.result.createObjectStore('handles'); };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function saveHandleToDB(handle) {
+  try {
+    const db = await openHandleDB();
+    const tx = db.transaction('handles', 'readwrite');
+    tx.objectStore('handles').put(handle, 'dataFile');
+    await new Promise(r => { tx.oncomplete = r; tx.onerror = r; });
+    db.close();
+  } catch(e) { /* IndexedDB unavailable */ }
+}
+
+async function loadHandleFromDB() {
+  try {
+    const db = await openHandleDB();
+    const tx = db.transaction('handles', 'readonly');
+    const req = tx.objectStore('handles').get('dataFile');
+    const handle = await new Promise(r => { req.onsuccess = () => r(req.result); req.onerror = () => r(null); });
+    db.close();
+    // Verify permission is still valid
+    if (handle && (await verifyHandlePermission(handle))) return handle;
+    return null;
+  } catch(e) { return null; }
+}
+
+async function verifyHandlePermission(handle) {
+  try {
+    const opts = { mode: 'readwrite' };
+    if (await handle.queryPermission(opts) === 'granted') return true;
+    if (await handle.requestPermission(opts) === 'granted') return true;
+    return false;
+  } catch(e) { return false; }
+}
+
+// === File System Access API ===
+async function pickDataFile() {
+  try {
+    const handle = await window.showOpenFilePicker({
+      types: [{ description: 'JSON Data', accept: { 'application/json': ['.json'] } }],
+      startIn: 'documents'
+    });
+    return handle[0];
+  } catch(e) {
+    return null; // user cancelled
+  }
+}
+
+async function createDataFile() {
+  try {
+    const handle = await window.showSaveFilePicker({
+      suggestedName: DATA_FILE_NAME,
+      types: [{ description: 'JSON Data', accept: { 'application/json': ['.json'] } }],
+      startIn: 'documents'
+    });
+    return handle;
+  } catch(e) {
+    return null;
+  }
+}
+
+async function readFromFile(handle) {
+  try {
+    const file = await handle.getFile();
+    const text = await file.text();
+    return JSON.parse(text);
+  } catch(e) { return null; }
+}
+
+async function writeToFile(handle, data) {
+  try {
+    const writable = await handle.createWritable();
+    await writable.write(JSON.stringify(data, null, 2));
+    await writable.close();
+    return true;
+  } catch(e) { return false; }
+}
+
+// === GitHub Gist API ===
+async function gistAPI(path, method = 'GET', body = null) {
+  const opts = {
+    method,
+    headers: {
+      'Authorization': `token ${gistToken}`,
+      'Accept': 'application/vnd.github.v3+json'
+    }
+  };
+  if (body) {
+    opts.headers['Content-Type'] = 'application/json';
+    opts.body = JSON.stringify(body);
+  }
+  const res = await fetch(`https://api.github.com${path}`, opts);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+async function createGist(data) {
+  const json = JSON.stringify(data, null, 2);
+  const resp = await gistAPI('/gists', 'POST', {
+    description: '日程安排数据 - 由 schedule app 自动管理',
+    public: false,
+    files: { 'schedule_data.json': { content: json } }
+  });
+  return resp.id;
+}
+
+async function readGist() {
+  const resp = await gistAPI(`/gists/${gistId}`);
+  const file = resp.files && resp.files['schedule_data.json'];
+  if (!file || !file.content) return null;
+  return JSON.parse(file.content);
+}
+
+async function updateGist(data) {
+  const json = JSON.stringify(data, null, 2);
+  await gistAPI(`/gists/${gistId}`, 'PATCH', {
+    files: { 'schedule_data.json': { content: json } }
+  });
+}
+
+async function connectGist() {
+  const token = document.getElementById('gistTokenInput').value.trim();
+  if (!token) {
+    document.getElementById('gistStatus').innerHTML = '<span style="color:#ef4444;">请输入 Token</span>';
+    return;
+  }
+  gistToken = token;
+  document.getElementById('gistStatus').innerHTML = '验证中...';
+
+  try {
+    // Test the token
+    await gistAPI('/user');
+    const data = packData();
+    gistId = await createGist(data);
+    saveSyncConfig();
+    syncMode = 'gist';
+    updateSyncIndicator();
+    updateSyncModal();
+    document.getElementById('gistStatus').innerHTML = '<span style="color:#059669;">✅ 连接成功！多设备可共用此 Token</span>';
+  } catch(e) {
+    document.getElementById('gistStatus').innerHTML = `<span style="color:#ef4444;">连接失败：${escapeHtml(e.message)}</span>`;
+    gistToken = '';
+  }
+}
+
+// === Unified load ===
+async function loadAllData() {
+  loadSyncConfig();
+
+  // Step 1: try Gist
+  if (gistToken && gistId) {
+    try {
+      const data = await readGist();
+      if (data && data.version) {
+        unpackData(data);
+        syncMode = 'gist';
+        updateSyncIndicator();
+        return;
+      }
+    } catch(e) {
+      // Gist fetch failed, fall through to file/local
+      console.warn('Gist sync failed, falling back:', e.message);
+    }
+  }
+
+  // Step 2: try file handle from IndexedDB
+  if (window.showOpenFilePicker) {
+    fileHandle = await loadHandleFromDB();
+    if (fileHandle) {
+      const data = await readFromFile(fileHandle);
+      if (data && data.version) {
+        unpackData(data);
+        syncMode = 'file';
+        updateSyncIndicator();
+        return;
+      }
+    }
+  }
+
+  // Step 3: fallback to localStorage
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      events = JSON.parse(saved);
+      events.forEach(e => {
+        if (!e.subtasks) e.subtasks = [];
+        if (e.reminder === undefined) e.reminder = false;
+      });
+    }
+  } catch(e) { events = []; }
+  syncMode = 'local';
+  updateSyncIndicator();
+}
+
+// === Unified save ===
+async function saveAllData() {
+  const data = packData();
+  // Always save to localStorage as backup
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
+
+  // Gist sync (debounced to avoid rate limits)
+  if (syncMode === 'gist' && gistToken && gistId) {
+    clearTimeout(syncDebounceTimer);
+    syncDebounceTimer = setTimeout(async () => {
+      try {
+        await updateGist(data);
+      } catch(e) {
+        console.warn('Gist push failed:', e.message);
+      }
+    }, 800);
+  }
+
+  // File sync
+  if (syncMode === 'file' && fileHandle) {
+    const ok = await writeToFile(fileHandle, data);
+    if (!ok) {
+      syncMode = 'local';
+      fileHandle = null;
+      updateSyncIndicator();
+    }
+  }
+  localStorage.setItem('schedule_focus_data', JSON.stringify({ date: focusDate, seconds: todayFocusSeconds }));
+}
+
+// Flush pending gist sync immediately (call before page unload)
+async function flushGistSync() {
+  if (syncMode === 'gist' && gistToken && gistId) {
+    clearTimeout(syncDebounceTimer);
+    try { await updateGist(packData()); } catch(e) {}
+  }
+}
+window.addEventListener('beforeunload', () => flushGistSync());
+
+// === Sync control ===
+function handleSyncClick() {
+  updateSyncModal();
+  document.getElementById('syncModalOverlay').classList.remove('hidden');
+}
+
+function closeSyncModal() {
+  document.getElementById('syncModalOverlay').classList.add('hidden');
+}
+
+function updateSyncModal() {
+  document.getElementById('syncCheckGist').textContent = syncMode === 'gist' ? '✓' : '';
+  document.getElementById('syncCheckFile').textContent = syncMode === 'file' ? '✓' : '';
+  document.getElementById('syncCheckLocal').textContent = syncMode === 'local' ? '✓' : '';
+
+  document.getElementById('syncOptGist').classList.toggle('active', syncMode === 'gist');
+  document.getElementById('syncOptFile').classList.toggle('active', syncMode === 'file');
+  document.getElementById('syncOptLocal').classList.toggle('active', syncMode === 'local');
+
+  const tokenArea = document.getElementById('gistTokenArea');
+  tokenArea.classList.toggle('show', syncMode === 'gist' || document.getElementById('syncOptGist').classList.contains('active-settings'));
+  if (syncMode === 'gist') {
+    document.getElementById('gistStatus').innerHTML = '<span style="color:#059669;">✅ 已连接</span>';
+  }
+}
+
+async function selectSyncMode(mode) {
+  if (mode === syncMode) return;
+
+  if (mode === 'gist') {
+    document.getElementById('gistTokenArea').classList.add('show');
+    if (gistToken && gistId) {
+      // Already have credentials, switch immediately
+      try {
+        // Verify still works
+        await readGist();
+        syncMode = 'gist';
+        updateSyncIndicator();
+        updateSyncModal();
+        document.getElementById('gistStatus').innerHTML = '<span style="color:#059669;">✅ 已连接</span>';
+      } catch(e) {
+        document.getElementById('gistStatus').innerHTML = '<span style="color:#ef4444;">连接失效，请重新输入 Token</span>';
+        gistToken = '';
+        gistId = '';
+        saveSyncConfig();
+      }
+    }
+    return;
+  }
+
+  if (mode === 'file') {
+    if (!window.showOpenFilePicker) {
+      alert('你的浏览器不支持文件系统访问。\n\n请使用 Chrome 或 Edge 桌面版。\n\n手机/平板建议使用「云端同步」。');
+      return;
+    }
+    const choice = confirm('点击「确定」选择已有 schedule_data.json\n点击「取消」创建新文件');
+    let handle;
+    if (choice) { handle = await pickDataFile(); }
+    else { handle = await createDataFile(); }
+    if (!handle) return;
+    const data = packData();
+    const ok = await writeToFile(handle, data);
+    if (!ok) { alert('写入失败'); return; }
+    fileHandle = handle;
+    syncMode = 'file';
+    await saveHandleToDB(handle);
+    updateSyncIndicator();
+    updateSyncModal();
+    return;
+  }
+
+  if (mode === 'local') {
+    // Confirm if switching from cloud
+    if (syncMode === 'gist' && !confirm('切换到仅本机模式后，云端连接将断开。\n\n数据仍保留在 Gist 中。确定切换？')) return;
+    if (syncMode === 'file') {
+      fileHandle = null;
+      openHandleDB().then(db => {
+        const tx = db.transaction('handles', 'readwrite');
+        tx.objectStore('handles').delete('dataFile');
+        db.close();
+      }).catch(() => {});
+    }
+    syncMode = 'local';
+    updateSyncIndicator();
+    updateSyncModal();
+  }
+}
+
+function updateSyncIndicator() {
+  const el = document.getElementById('syncIndicator');
+  if (!el) return;
+  if (syncMode === 'gist') {
+    el.textContent = '☁️ 云端同步';
+    el.style.color = '#059669';
+    el.title = '通过 GitHub Gist 跨设备同步\n所有设备输入同一个 Token 即可';
+  } else if (syncMode === 'file') {
+    el.textContent = '📁 文件同步';
+    el.style.color = '#059669';
+    el.title = '数据写入 schedule_data.json\n通过 OneDrive 跨设备同步';
+  } else {
+    el.textContent = '💻 仅本机';
+    el.style.color = '#6b7280';
+    el.title = '数据仅存于浏览器\n点击配置同步';
+  }
+}
+
+// Legacy wrappers
+function loadEvents() { /* handled by loadAllData */ }
+function saveEvents() { saveAllData(); }
+
+function getEventsForDate(dateStr) {
+  return events.filter(e => e.date === dateStr).sort((a, b) => {
+    if (!a.time) return 1;
+    if (!b.time) return -1;
+    return a.time.localeCompare(b.time);
+  });
+}
+
+function formatDate(y, m, d) {
+  m = String(m + 1).padStart(2, '0');
+  d = String(d).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function parseDate(str) {
+  const [y, m, d] = str.split('-').map(Number);
+  return { y, m: m - 1, d };
+}
+
+function getWeekStart(d) {
+  const start = new Date(d);
+  const day = start.getDay();
+  start.setDate(start.getDate() - day);
+  start.setHours(0,0,0,0);
+  return start;
+}
+
+// === Month View ===
+function renderMonth() {
+  const y = currentDate.getFullYear();
+  const m = currentDate.getMonth();
+  document.getElementById('monthLabel').textContent = `${y}年 ${m + 1}月`;
+
+  const firstDay = new Date(y, m, 1).getDay();
+  const daysInMonth = new Date(y, m + 1, 0).getDate();
+  const daysInPrev = new Date(y, m, 0).getDate();
+  const totalCells = Math.ceil((firstDay + daysInMonth) / 7) * 7;
+
+  const grid = document.getElementById('dayGrid');
+  grid.innerHTML = '';
+
+  const todayStr = formatDate(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
+
+  for (let i = 0; i < totalCells; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'day-cell';
+
+    let d, dateStr, isOther = false;
+    if (i < firstDay) {
+      d = daysInPrev - firstDay + i + 1;
+      dateStr = formatDate(y, m - 1, d);
+      isOther = true;
+    } else if (i - firstDay >= daysInMonth) {
+      d = i - firstDay - daysInMonth + 1;
+      dateStr = formatDate(y, m + 1, d);
+      isOther = true;
+    } else {
+      d = i - firstDay + 1;
+      dateStr = formatDate(y, m, d);
+    }
+
+    if (isOther) cell.classList.add('other-month');
+    if (dateStr === todayStr) cell.classList.add('today');
+
+    const num = document.createElement('div');
+    num.className = 'day-num';
+    num.textContent = d;
+    cell.appendChild(num);
+
+    const evtContainer = document.createElement('div');
+    evtContainer.className = 'day-events';
+    const dayEvents = getEventsForDate(dateStr);
+    dayEvents.slice(0, 3).forEach(ev => {
+      const chip = document.createElement('div');
+      chip.className = `event-chip ${ev.category || 'other'}`;
+      chip.textContent = ev.time ? `${ev.time.slice(0,5)} ${ev.title}` : ev.title;
+      chip.onclick = (e) => { e.stopPropagation(); selectDate(dateStr, cell); };
+      evtContainer.appendChild(chip);
+    });
+    if (dayEvents.length > 3) {
+      const more = document.createElement('div');
+      more.className = 'event-chip other';
+      more.textContent = `+${dayEvents.length - 3} 更多`;
+      evtContainer.appendChild(more);
+    }
+    cell.appendChild(evtContainer);
+
+    cell.onclick = () => selectDate(dateStr, cell);
+    grid.appendChild(cell);
+  }
+}
+
+// === Week View ===
+function renderWeek() {
+  const start = getWeekStart(currentDate);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 6);
+
+  document.getElementById('monthLabel').textContent =
+    `${start.getFullYear()}年 ${start.getMonth()+1}月 ${start.getDate()}日 - ${end.getMonth()+1}月 ${end.getDate()}日`;
+
+  const headerRow = document.getElementById('weekHeader');
+  headerRow.innerHTML = '';
+  const weekDayNames = ['日', '一', '二', '三', '四', '五', '六'];
+  const todayStr = formatDate(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
+
+  const weekDates = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(start);
+    d.setDate(d.getDate() + i);
+    const ds = formatDate(d.getFullYear(), d.getMonth(), d.getDate());
+    weekDates.push(ds);
+    const lbl = document.createElement('div');
+    lbl.className = 'week-day-label' + (ds === todayStr ? ' today' : '');
+    lbl.innerHTML = `${weekDayNames[i]}<br>${d.getMonth()+1}/${d.getDate()}`;
+    lbl.onclick = () => selectDate(ds);
+    headerRow.appendChild(lbl);
+  }
+
+  const content = document.getElementById('weekContent');
+  content.innerHTML = '';
+
+  for (let h = 0; h < 24; h++) {
+    const slot = document.createElement('div');
+    slot.className = 'hour-slot';
+
+    const label = document.createElement('div');
+    label.className = 'hour-label';
+    label.textContent = `${String(h).padStart(2,'0')}:00`;
+    slot.appendChild(label);
+
+    const daysRow = document.createElement('div');
+    daysRow.className = 'hour-days';
+
+    for (let i = 0; i < 7; i++) {
+      const hdc = document.createElement('div');
+      hdc.className = 'hour-day-cell';
+      hdc.onclick = () => selectDate(weekDates[i]);
+      const dayEvents = getEventsForDate(weekDates[i]).filter(e => {
+        if (!e.time) return h === 8;
+        return parseInt(e.time.split(':')[0]) === h;
+      });
+      dayEvents.forEach(ev => {
+        const chip = document.createElement('div');
+        chip.className = `week-event ${ev.category || 'other'}`;
+        chip.textContent = ev.title;
+        chip.onclick = (e) => { e.stopPropagation(); editEvent(ev); };
+        hdc.appendChild(chip);
+      });
+      daysRow.appendChild(hdc);
+    }
+    slot.appendChild(daysRow);
+    content.appendChild(slot);
+  }
+}
+
+// === Day View ===
+function renderDay() {
+  const dateStr = selectedDate || formatDate(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
+  const { y, m, d } = parseDate(dateStr);
+  const dateObj = new Date(y, m, d);
+  const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+  const isToday = dateStr === formatDate(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
+
+  const header = document.getElementById('dayHeader');
+  header.innerHTML = `
+    <div class="day-date">${m+1}月${d}日 ${isToday ? '· 今天' : ''}</div>
+    <div class="day-weekday">星期${weekdays[dateObj.getDay()]}</div>
+  `;
+  document.getElementById('monthLabel').textContent = `${y}年 ${m+1}月${d}日${isToday ? ' · 今天' : ''}`;
+
+  const timeline = document.getElementById('dayTimeline');
+  const dayEvents = getEventsForDate(dateStr);
+
+  if (dayEvents.length === 0) {
+    timeline.innerHTML = `
+      <div class="day-empty">
+        <div class="empty-icon">📭</div>
+        <div class="empty-text">这天没有安排</div>
+      </div>
+    `;
+    return;
+  }
+
+  timeline.innerHTML = dayEvents.map(ev => {
+    const done = (ev.subtasks || []).filter(s => s.done).length;
+    const total = (ev.subtasks || []).length;
+    const catLabel = { work: '工作', personal: '个人', important: '重要', other: '其他' }[ev.category] || '其他';
+    const reminderText = ev.reminder
+      ? (ev.reminderMinutes === 0 ? '准时提醒' : ev.reminderMinutes >= 1440 ? '提前1天' : ev.reminderMinutes >= 60 ? `提前${ev.reminderMinutes/60}小时` : `提前${ev.reminderMinutes}分钟`)
+      : '';
+
+    return `
+      <div class="day-event-card ${ev.category || 'other'}" onclick="editEvent(events[${findEventIndex(ev)}])">
+        <div class="day-card-time">${ev.time ? ev.time.slice(0,5) : '全天'}</div>
+        <div class="day-card-body">
+          <div class="day-card-title">${escapeHtml(ev.title)}</div>
+          ${ev.desc ? `<div class="day-card-desc">${escapeHtml(ev.desc)}</div>` : ''}
+          <div class="day-card-meta">
+            <span class="day-card-cat ${ev.category || 'other'}">${catLabel}</span>
+            ${reminderText ? `<span class="day-card-reminder">🔔 ${reminderText}</span>` : ''}
+            ${total > 0 ? `<span class="progress-text">子任务 ${done}/${total}</span>` : ''}
+          </div>
+          ${total > 0 ? `<div class="progress-bar" style="margin-top:6px;"><div class="progress-fill" style="width:${Math.round(done/total*100)}%"></div></div>` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// === Sidebar ===
+function selectDate(dateStr, dayCell) {
+  selectedDate = dateStr;
+  document.querySelectorAll('.day-cell.selected').forEach(c => c.classList.remove('selected'));
+  if (dayCell) dayCell.classList.add('selected');
+
+  const { y, m, d } = parseDate(dateStr);
+  document.getElementById('sidebarTitle').textContent = `${m + 1}月${d}日 日程`;
+  renderSidebar(dateStr);
+  if (currentView === 'day') renderDay();
+}
+
+function renderSidebar(dateStr) {
+  const container = document.getElementById('sidebarEvents');
+  const dayEvents = getEventsForDate(dateStr);
+  if (dayEvents.length === 0) {
+    container.innerHTML = '<div class="no-events">暂无日程</div>';
+  } else {
+    container.innerHTML = dayEvents.map((ev, i) => `
+      <div class="sidebar-event ${ev.category || 'other'}" onclick="editEvent(events[${findEventIndex(ev)}])">
+        ${ev.time ? `<div class="evt-time">${ev.time.slice(0,5)}${ev.reminder ? ' 🔔' : ''}</div>` : ''}
+        <div class="evt-title">${escapeHtml(ev.title)}</div>
+        ${ev.desc ? `<div class="evt-desc">${escapeHtml(ev.desc)}</div>` : ''}
+        ${renderSubtaskProgress(ev)}
+        <button class="evt-delete" onclick="deleteEvent(event, '${ev.id}')">删除</button>
+      </div>
+    `).join('');
+  }
+}
+
+function renderSubtaskProgress(ev) {
+  if (!ev.subtasks || ev.subtasks.length === 0) return '';
+  const done = ev.subtasks.filter(s => s.done).length;
+  const total = ev.subtasks.length;
+  const pct = Math.round((done / total) * 100);
+  return `
+    <div class="subtask-progress">
+      <div class="progress-text">子任务 ${done}/${total}</div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
+    </div>
+  `;
+}
+
+function findEventIndex(ev) {
+  return events.findIndex(e => e.id === ev.id);
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+// === Subtasks ===
+function renderSubtasks() {
+  const list = document.getElementById('subtaskList');
+  list.innerHTML = tempSubtasks.map((s, i) => `
+    <div class="subtask-item">
+      <input type="checkbox" ${s.done ? 'checked' : ''} onchange="toggleSubtask(${i})">
+      <span class="subtask-title ${s.done ? 'done' : ''}">${escapeHtml(s.title)}</span>
+      <button type="button" class="subtask-delete" onclick="removeSubtask(${i})">✕</button>
+    </div>
+  `).join('');
+}
+
+function addSubtask() {
+  const input = document.getElementById('subtaskInput');
+  const title = input.value.trim();
+  if (!title) return;
+  tempSubtasks.push({ id: generateId(), title, done: false });
+  input.value = '';
+  renderSubtasks();
+}
+
+function toggleSubtask(i) {
+  tempSubtasks[i].done = !tempSubtasks[i].done;
+  renderSubtasks();
+}
+
+function removeSubtask(i) {
+  tempSubtasks.splice(i, 1);
+  renderSubtasks();
+}
+
+function toggleReminderTime() {
+  const checked = document.getElementById('evtReminder').checked;
+  document.getElementById('evtReminderTime').style.display = checked ? '' : 'none';
+}
+
+// === Reminder checker ===
+function checkReminders() {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  const now = new Date();
+  const nowTime = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  const todayStr = formatDate(now.getFullYear(), now.getMonth(), now.getDate());
+
+  events.forEach(ev => {
+    if (!ev.reminder || !ev.time) return;
+    if (ev.date !== todayStr) return;
+    if (firedReminders.has(ev.id)) return;
+
+    const [h, m] = ev.time.split(':').map(Number);
+    const evtMinutes = h * 60 + m;
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    const triggerMinutes = evtMinutes - (ev.reminderMinutes || 0);
+
+    if (nowMinutes >= triggerMinutes && nowMinutes < evtMinutes + 1) {
+      firedReminders.add(ev.id);
+      const done = ev.subtasks.filter(s => s.done).length;
+      const total = ev.subtasks.length;
+      let body = ev.time.slice(0,5);
+      if (total > 0) body += ` · 子任务 ${done}/${total}`;
+      if (ev.desc) body += `\n${ev.desc}`;
+      new Notification(ev.title, { body, icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">📅</text></svg>' });
+    }
+  });
+
+  // Reset firedReminders at midnight
+  const midnight = new Date(now);
+  midnight.setHours(24,0,0,0);
+  const msToMidnight = midnight - now;
+  if (msToMidnight < 60000) firedReminders.clear();
+}
+
+// Request notification permission on first interaction
+document.addEventListener('click', function requestNotify() {
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+}, { once: true });
+
+setInterval(checkReminders, 30000);
+
+// === CRUD ===
+function generateId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+function openAddModal(dateStr) {
+  document.getElementById('modalTitle').textContent = '添加日程';
+  document.getElementById('editId').value = '';
+  document.getElementById('evtTitle').value = '';
+  document.getElementById('evtDesc').value = '';
+  document.getElementById('evtTime').value = '';
+  document.getElementById('evtCategory').value = 'work';
+  document.getElementById('evtDate').value = dateStr || selectedDate || formatDate(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
+  document.getElementById('evtReminder').checked = false;
+  document.getElementById('evtReminderTime').style.display = 'none';
+  tempSubtasks = [];
+  renderSubtasks();
+  document.getElementById('modalOverlay').classList.remove('hidden');
+  document.getElementById('evtTitle').focus();
+}
+
+function editEvent(ev) {
+  document.getElementById('modalTitle').textContent = '编辑日程';
+  document.getElementById('editId').value = ev.id;
+  document.getElementById('evtTitle').value = ev.title;
+  document.getElementById('evtDesc').value = ev.desc || '';
+  document.getElementById('evtTime').value = ev.time || '';
+  document.getElementById('evtCategory').value = ev.category || 'work';
+  document.getElementById('evtDate').value = ev.date;
+  document.getElementById('evtReminder').checked = ev.reminder || false;
+  document.getElementById('evtReminderTime').style.display = ev.reminder ? '' : 'none';
+  document.getElementById('evtReminderTime').value = ev.reminderMinutes || 15;
+  tempSubtasks = (ev.subtasks || []).map(s => ({...s}));
+  renderSubtasks();
+  document.getElementById('modalOverlay').classList.remove('hidden');
+}
+
+function saveEvent(e) {
+  e.preventDefault();
+  const id = document.getElementById('editId').value;
+  const title = document.getElementById('evtTitle').value.trim();
+  const date = document.getElementById('evtDate').value;
+  const time = document.getElementById('evtTime').value;
+  const category = document.getElementById('evtCategory').value;
+  const desc = document.getElementById('evtDesc').value.trim();
+
+  if (!title || !date) return;
+
+  const reminder = document.getElementById('evtReminder').checked;
+  const reminderMinutes = reminder ? parseInt(document.getElementById('evtReminderTime').value) : 0;
+
+  if (id) {
+    const idx = events.findIndex(ev => ev.id === id);
+    if (idx >= 0) {
+      events[idx] = { ...events[idx], title, date, time, category, desc, reminder, reminderMinutes, subtasks: tempSubtasks.map(s => ({...s})) };
+    }
+  } else {
+    events.push({ id: generateId(), title, date, time, category, desc, reminder, reminderMinutes, subtasks: tempSubtasks.map(s => ({...s})) });
+  }
+
+  saveEvents();
+  closeModal();
+  refreshAll();
+
+  if (selectedDate === date) renderSidebar(date);
+  selectDate(date);
+}
+
+function deleteEvent(e, id) {
+  e.stopPropagation();
+  if (!confirm('确定要删除这个日程吗？')) return;
+  const idx = events.findIndex(ev => ev.id === id);
+  if (idx >= 0) {
+    const dateStr = events[idx].date;
+    events.splice(idx, 1);
+    saveEvents();
+    refreshAll();
+    if (selectedDate === dateStr) renderSidebar(dateStr);
+  }
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.add('hidden');
+}
+
+// === Navigation ===
+function goToday() {
+  currentDate = new Date();
+  refreshAll();
+  selectDate(formatDate(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate()));
+}
+
+function prevMonth() {
+  if (currentView === 'month') {
+    currentDate.setMonth(currentDate.getMonth() - 1);
+  } else if (currentView === 'week') {
+    currentDate.setDate(currentDate.getDate() - 7);
+  } else if (currentView === 'day') {
+    const d = parseDate(selectedDate);
+    currentDate = new Date(d.y, d.m, d.d - 1);
+    selectedDate = formatDate(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
+  }
+  refreshAll();
+}
+
+function nextMonth() {
+  if (currentView === 'month') {
+    currentDate.setMonth(currentDate.getMonth() + 1);
+  } else if (currentView === 'week') {
+    currentDate.setDate(currentDate.getDate() + 7);
+  } else if (currentView === 'day') {
+    const d = parseDate(selectedDate);
+    currentDate = new Date(d.y, d.m, d.d + 1);
+    selectedDate = formatDate(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate());
+  }
+  refreshAll();
+}
+
+function switchView(view) {
+  currentView = view;
+  document.getElementById('monthView').classList.toggle('active', view === 'month');
+  document.getElementById('weekView').classList.toggle('active', view === 'week');
+  document.getElementById('dayView').classList.toggle('active', view === 'day');
+  document.getElementById('monthViewBtn').classList.toggle('active', view === 'month');
+  document.getElementById('weekViewBtn').classList.toggle('active', view === 'week');
+  document.getElementById('dayViewBtn').classList.toggle('active', view === 'day');
+
+  if (view === 'day') {
+    // use today if selectedDate is not set or user hasn't clicked a specific date
+    if (!selectedDate) {
+      selectedDate = formatDate(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
+    }
+  }
+  refreshAll();
+}
+
+function refreshAll() {
+  if (currentView === 'month') renderMonth();
+  else if (currentView === 'week') renderWeek();
+  else if (currentView === 'day') renderDay();
+  if (selectedDate) renderSidebar(selectedDate);
+}
+
+// === Pomodoro Timer ===
+let pomoDuration = 25 * 60; // seconds
+let pomoRemaining = 25 * 60;
+let pomoInterval = null;
+let pomoRunning = false;
+let pomoPaused = false;
+let todayFocusSeconds = 0;
+let focusDate = '';
+
+// loadFocusData / saveFocusData removed: data is now handled by unpackData / saveAllData
+
+function formatFocus(sec) {
+  if (sec < 60) return `${sec} 秒`;
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  if (h > 0 && m > 0) return `${h} 小时 ${m} 分钟`;
+  if (h > 0) return `${h} 小时`;
+  return `${m} 分钟`;
+}
+
+function updatePomoDisplay() {
+  const m = Math.floor(pomoRemaining / 60);
+  const s = pomoRemaining % 60;
+  document.getElementById('pomoDisplay').textContent =
+    `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+
+  const display = document.getElementById('pomoDisplay');
+  display.classList.remove('running', 'paused');
+  if (pomoRunning && !pomoPaused) display.classList.add('running');
+  if (pomoPaused) display.classList.add('paused');
+
+  document.getElementById('pomoToday').textContent = `今日专注：${formatFocus(todayFocusSeconds)}`;
+}
+
+function updatePomoStatus(text) {
+  document.getElementById('pomoStatus').textContent = text;
+}
+
+function togglePomoButtons(running, paused) {
+  document.getElementById('pomoStartBtn').style.display = (running && !paused) ? 'none' : '';
+  document.getElementById('pomoPauseBtn').style.display = (running && !paused) ? '' : 'none';
+  document.getElementById('pomoPauseBtn').textContent = paused ? '继续' : '暂停';
+}
+
+function setPomoDuration(minutes) {
+  if (pomoRunning) return;
+  if (minutes === 0) {
+    // custom mode - use the input value
+    minutes = parseInt(document.getElementById('pomoCustomInput').value) || 25;
+    minutes = Math.max(5, Math.min(300, minutes));
+    document.getElementById('pomoCustomInput').value = minutes;
+  }
+  pomoDuration = minutes * 60;
+  pomoRemaining = pomoDuration;
+  updatePomoDisplay();
+  updatePomoStatus('准备开始');
+
+  // Update preset active states
+  document.querySelectorAll('.pomo-preset').forEach(b => {
+    b.classList.remove('active');
+    if (!b.classList.contains('custom-preset') && parseInt(b.textContent) === minutes) b.classList.add('active');
+    if (b.classList.contains('custom-preset')) {
+      const presets = [25, 45, 60, 90, 120];
+      b.classList.toggle('active', !presets.includes(minutes));
+    }
+  });
+}
+
+function onCustomInput() {
+  if (pomoRunning) return;
+  const val = parseInt(document.getElementById('pomoCustomInput').value) || 25;
+  const clamped = Math.max(5, Math.min(300, val));
+  document.getElementById('pomoCustomInput').value = clamped;
+  setPomoDuration(clamped);
+}
+
+function startPomodoro() {
+  if (pomoRunning && !pomoPaused) return;
+
+  if (pomoPaused) {
+    // Resume
+    pomoPaused = false;
+    updatePomoStatus('专注中...');
+    togglePomoButtons(true, false);
+    updatePomoDisplay();
+    pomoInterval = setInterval(tickPomodoro, 1000);
+    return;
+  }
+
+  // Fresh start
+  if (pomoRemaining <= 0) pomoRemaining = pomoDuration;
+  pomoRunning = true;
+  pomoPaused = false;
+  updatePomoStatus('专注中...');
+  togglePomoButtons(true, false);
+  updatePomoDisplay();
+  pomoInterval = setInterval(tickPomodoro, 1000);
+}
+
+function tickPomodoro() {
+  pomoRemaining--;
+  updatePomoDisplay();
+  if (pomoRemaining <= 0) finishPomodoro();
+}
+
+function pausePomodoro() {
+  if (!pomoRunning) return;
+  if (pomoPaused) {
+    // Resume
+    startPomodoro();
+  } else {
+    // Pause
+    pomoPaused = true;
+    clearInterval(pomoInterval);
+    pomoInterval = null;
+    updatePomoStatus('已暂停');
+    togglePomoButtons(true, true);
+    updatePomoDisplay();
+  }
+}
+
+function resetPomodoro() {
+  clearInterval(pomoInterval);
+  pomoInterval = null;
+  pomoRunning = false;
+  pomoPaused = false;
+  pomoRemaining = pomoDuration;
+  updatePomoDisplay();
+  updatePomoStatus('准备开始');
+  togglePomoButtons(false, false);
+}
+
+function finishPomodoro() {
+  clearInterval(pomoInterval);
+  pomoInterval = null;
+  pomoRunning = false;
+  pomoPaused = false;
+  pomoRemaining = pomoDuration;
+
+  // Add to today's focus
+  todayFocusSeconds += pomoDuration;
+  const today = formatDate(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
+  focusDate = today;
+  saveAllData();
+  updatePomoDisplay();
+  updatePomoStatus('完成！');
+  togglePomoButtons(false, false);
+
+  // Notification
+  if ('Notification' in window && Notification.permission === 'granted') {
+    new Notification('番茄钟完成', {
+      body: `专注了 ${formatFocus(pomoDuration)}，今日累计 ${formatFocus(todayFocusSeconds)}`,
+      icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">🍅</text></svg>'
+    });
+  }
+
+  // Also play a simple beep via oscillator
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = 880;
+    gain.gain.value = 0.3;
+    osc.start();
+    osc.stop(ctx.currentTime + 0.15);
+    setTimeout(() => {
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      osc2.frequency.value = 1100;
+      gain2.gain.value = 0.3;
+      osc2.start();
+      osc2.stop(ctx.currentTime + 0.2);
+    }, 200);
+  } catch(e) {}
+
+  updatePomoDisplay();
+}
+
+// === Init ===
+(async function init() {
+  await loadAllData();
+  const todayStr = formatDate(new Date().getFullYear(), new Date().getMonth(), new Date().getDate());
+  selectedDate = todayStr;
+  renderMonth();
+  renderSidebar(todayStr);
+  updatePomoDisplay();
+})();
+
+// Close modal on overlay click
+document.getElementById('modalOverlay').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+document.getElementById('syncModalOverlay').addEventListener('click', function(e) {
+  if (e.target === this) closeSyncModal();
+});
+
+// Keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+  if (document.getElementById('modalOverlay').classList.contains('hidden')) {
+    if (e.key === 'n' || e.key === 'N') {
+      openAddModal();
+    } else if (e.key === 'ArrowLeft') {
+      prevMonth();
+    } else if (e.key === 'ArrowRight') {
+      nextMonth();
+    } else if (e.key === 't' || e.key === 'T') {
+      goToday();
+    }
+  }
+  if (e.key === 'Escape') {
+    if (!document.getElementById('syncModalOverlay').classList.contains('hidden')) closeSyncModal();
+    else closeModal();
+  }
+});
+</script>
+</body>
+</html>
